@@ -1,46 +1,49 @@
 # Define prompts for each package manager
-WHICH_JPSM_PROMPT=''
 NPM_PROMPT="%K{#cd3534}%F{#ffffff} npm %F{reset}%K{reset} "
 YARN_PROMPT="%K{#2d8ebb}%F{#ffffff} yarn %F{reset}%K{reset} "
 PNPM_PROMPT="%K{#f69220}%F{#ffffff} pnpm %F{reset}%K{reset} "
 BUN_PROMPT="%K{#5e5e5e}%F{#ffffff} bun %F{reset}%K{reset} "
 
-function found_package() {
-  # Check for npm
-  if test -f "package-lock.json" && [[ "$WHICH_JPSM_PROMPT" != *"$NPM_PROMPT"* ]]; then
-    WHICH_JPSM_PROMPT+=$NPM_PROMPT
-  fi
-
-  # Check for yarn
-  if test -f "yarn.lock" && [[ "$WHICH_JPSM_PROMPT" != *"$YARN_PROMPT"* ]]; then
-    WHICH_JPSM_PROMPT+=$YARN_PROMPT
-  fi
-
-  # Check for pnpm
-  if test -f "pnpm-lock.yaml" && [[ "$WHICH_JPSM_PROMPT" != *"$PNPM_PROMPT"* ]]; then
-    WHICH_JPSM_PROMPT+=$PNPM_PROMPT
-  fi
-
-  # Check for bun
-  if test -f "bun.lockb" && [[ "$WHICH_JPSM_PROMPT" != *"$BUN_PROMPT"* ]]; then
-    WHICH_JPSM_PROMPT+=$BUN_PROMPT
-  fi
-}
-
 # Hook to update prompt on directory change
-add-zsh-hook chpwd chpwd_which_jspm
-chpwd_which_jspm() {
-  if test -f "package.json"; then
-    PROMPT_ORIG=${PROMPT%$WHICH_JPSM_PROMPT}
-    JPSM_PROMPT_BEFORE=${PROMPT//$PROMPT_ORIG/}
+add-zsh-hook chpwd which-jspm
+which-jspm() {
+  local NEW_PROMPT=$PROMPT
+  NEW_PROMPT="${NEW_PROMPT//$NPM_PROMPT}"
+  NEW_PROMPT="${NEW_PROMPT//$YARN_PROMPT}"
+  NEW_PROMPT="${NEW_PROMPT//$PNPM_PROMPT}"
 
-    found_package
+  # Recursively search parent directories for package.json
+  local DIR=$PWD
+  while
+    PKG_PATH=$(find "$DIR"/ -maxdepth 1 -name "package.json")
+    [[ -z $PKG_PATH ]] && [[ "$DIR" != "/" ]]
+  do DIR=$(dirname "$DIR"); done
 
-    if [[ "$JPSM_PROMPT_BEFORE" != "$WHICH_JPSM_PROMPT" ]]; then
-      PROMPT+=$WHICH_JPSM_PROMPT
+  if test "$PKG_PATH";
+  then
+    # Check for npm
+    if test -f "$DIR/package-lock.json"; then
+      NEW_PROMPT+=$NPM_PROMPT
     fi
-  elif [ "$WHICH_JPSM_PROMPT" != '' ]; then
-    PROMPT=${PROMPT%$WHICH_JPSM_PROMPT}
-    WHICH_JPSM_PROMPT=''
+
+    # Check for yarn
+    if test -f "$DIR/yarn.lock"; then
+      NEW_PROMPT+=$YARN_PROMPT
+    fi
+
+    # Check for pnpm
+    if test -f "$DIR/pnpm-lock.yaml"; then
+      NEW_PROMPT+=$PNPM_PROMPT
+    fi
+
+    # Check for bun
+    if test -f "$DIR/bun.lockb"; then
+      NEW_PROMPT+=$BUN_PROMPT
+    fi
+  fi
+
+  # Only update PROMPT if NEW_PROMPT is different
+  if [ "$PROMPT" != "$NEW_PROMPT" ]; then
+        PROMPT=$NEW_PROMPT
   fi
 }
